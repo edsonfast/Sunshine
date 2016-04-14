@@ -44,6 +44,10 @@
                 android:value="br.com.fast.edson.sunshine.MainActivity"/>
         </activity>
 
+        <provider
+            android:authorities="br.com.fast.edson.sunshine"
+            android:name=".data.WeatherProvider" />
+
     </application>
 
 </manifest>
