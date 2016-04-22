@@ -1,30 +1,31 @@
 package br.com.fast.edson.sunshine;
 
-import android.content.Intent;
-import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
 import android.support.v4.app.Fragment;
-import android.util.Log;
+import android.support.v4.app.LoaderManager;
+import android.support.v4.content.CursorLoader;
+import android.support.v4.content.Loader;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.ListView;
+import android.widget.Toast;
 
-import java.util.ArrayList;
+import br.com.fast.edson.sunshine.data.WeatherContract;
 
 /**
  * Created by Edson on 23/03/2016.
  */
-public class ForecastFragment extends Fragment {
+public class ForecastFragment extends Fragment implements LoaderManager.LoaderCallbacks<Cursor> {
     public static final String LOG_TAG = ForecastFragment.class.getSimpleName();
-    private ArrayAdapter<String> mForecastAdapter;
+    //private ArrayAdapter<String> mForecastAdapter;
+    private static final int FORECAST_LOADER = 0;
+    private ForecastAdapter mForecastAdapter;
 
     public ForecastFragment() {
     }
@@ -48,146 +49,109 @@ public class ForecastFragment extends Fragment {
             updateWeather();
             return true;
         }
-        if (id == R.id.action_map){
-            openPreferredLocationInMap();
-            return true;
-        }
+//        if (id == R.id.action_map){
+//            openPreferredLocationInMap();
+//            return true;
+//        }
         return super.onOptionsItemSelected(menuItem);
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                             Bundle savedInstanceState) {
 
-//        mForecastAdapter = new ArrayAdapter<String>(
-//                getActivity(),
-//                R.layout.list_item_forecast,
-//                R.id.list_item_forecast_textview);
-//
-//        String[] forecastArray = {
-//                "a - a",
-//                "b - b",
-//                "c - b",
-//                "d - b",
-//                "e - b",
-//                "f - b",
-//                "g - b",
-//                "h - b",
-//                "i - b",
-//                "j - b",
-//                "l - b",
-//                "m - b",
-//                "n - b",
-//                "o - b"
-//        };
-//
-//        List<String> weekForecast = new ArrayList<String>(
-//                Arrays.asList(forecastArray)
-//        );
-//
-//        mForecastAdapter = new ArrayAdapter<String>(
-//                getActivity(),
-//                R.layout.list_item_forecast,
-//                R.id.list_item_forecast_textview,
-//                weekForecast);
-
-        mForecastAdapter = new ArrayAdapter<String>(
-                getActivity(),
-                R.layout.list_item_forecast,
-                R.id.list_item_forecast_textview,
-                new ArrayList<String>());
+        mForecastAdapter = new ForecastAdapter(getActivity(), null, 0);
 
         View rootView = inflater.inflate(R.layout.fragment_main, container, false);
-        
+
+        // Get a reference to the ListView, and attach this adapter to it.
         ListView listView = (ListView) rootView.findViewById(R.id.listview_forecast);
         listView.setAdapter(mForecastAdapter);
-        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-
-            @Override
-            public void onItemClick(AdapterView<?> adapterView, View view, int position, long l) {
-                //String selectedText = (String) adapterView.getItemAtPosition(position);
-                String forecast = mForecastAdapter.getItem(position);
-
-                //Toast.makeText(getActivity(), forecast, Toast.LENGTH_SHORT).show();
-                Intent intent = new Intent(getActivity(), DetailActivity.class)
-                        .putExtra(Intent.EXTRA_TEXT, forecast);
-                startActivity(intent);
-            }
-        });
 
         return rootView;
     }
 
     @Override
-    public void onStart(){
+    public void onActivityCreated(Bundle saveInstanceState) {
+        getLoaderManager().initLoader(FORECAST_LOADER, null, this);
+        super.onActivityCreated(saveInstanceState);
+    }
+
+    private void updateWeather() {
+        FetchWeatherTask weatherTask = new FetchWeatherTask(getActivity());
+        String location = Utility.getPreferredLocation(getActivity());
+        weatherTask.execute(location);
+    }
+
+    @Override
+    public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
+        String locationSetting = Utility.getPreferredLocation(getActivity());
+
+        String sortOrder = WeatherContract.WeatherEntry.COLUMN_DATE + " ASC";
+
+        Uri weatherForLocationUri = WeatherContract.WeatherEntry.buildWeatherLocationWithStartDate(
+                locationSetting, System.currentTimeMillis());
+
+        return new CursorLoader(getActivity(), weatherForLocationUri, null, null, null, sortOrder);
+    }
+
+    @Override
+    public void onLoadFinished(Loader<Cursor> cursorLoader, Cursor cursor) {
+        mForecastAdapter.swapCursor(cursor);
+        Toast toast = Toast.makeText(getActivity(), R.string.data_refresh, Toast.LENGTH_SHORT);
+        toast.show();
+    }
+
+    @Override
+    public void onLoaderReset(Loader<Cursor> cursorLoader) {
+        mForecastAdapter.swapCursor(null);
+    }
+
+    @Override
+    public void onStart() {
         super.onStart();
         updateWeather();
     }
 
 
-
-    private void updateWeather(){
-        //FetchWeatherTask weatherTask = new FetchWeatherTask();
-        FetchWeatherTask weatherTask = new FetchWeatherTask(getActivity(), mForecastAdapter);
-
-        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getActivity());
-        String location = sharedPreferences.getString(
-                getString(R.string.pref_location_key),getString(R.string.pref_location_default)
-        );
-
-        weatherTask.execute(location);
-    }
-
-
-    private void openPreferredLocationInMap() {
-        SharedPreferences sharedPrefs =
-                PreferenceManager.getDefaultSharedPreferences(getActivity());
-        String location = sharedPrefs.getString(
-                getString(R.string.pref_location_key),
-                getString(R.string.pref_location_default));
-
-        // Using the URI scheme for showing a location found on a map.  This super-handy
-        // intent can is detailed in the "Common Intents" page of Android's developer site:
-        // http://developer.android.com/guide/components/intents-common.html#Maps
-        if ( null != mForecastAdapter ) {
-            //Cursor c = mForecastAdapter.getCursor();
-            //if ( null != c ) {
-                //c.moveToPosition(0);
-                //String posLat = c.getString(COL_COORD_LAT);
-                //String posLong = c.getString(COL_COORD_LONG);
-                //Uri geoLocation = Uri.parse("geo:" + posLat + "," + posLong);
-
-
-                // Using the URI scheme for showing a location found on a map.  This super-handy
-                // intent can is detailed in the "Common Intents" page of Android's developer site:
-                // http://developer.android.com/guide/components/intents-common.html#Maps
-                Uri geoLocation = Uri.parse("geo:0,0?").buildUpon()
-                    .appendQueryParameter("q", location)
-                    .build();
-
-                Intent intent = new Intent(Intent.ACTION_VIEW);
-                intent.setData(geoLocation);
-
-                if (intent.resolveActivity(getActivity().getPackageManager()) != null) {
-                    startActivity(intent);
-                } else {
-                    Log.d(LOG_TAG, "Couldn't call " + geoLocation.toString() + ", no receiving apps installed!");
-                }
-            //}
-
-        }
-    }
-
-
-
-
-
-
-
-
-
-
-
-
+//    private void openPreferredLocationInMap() {
+//        SharedPreferences sharedPrefs =
+//                PreferenceManager.getDefaultSharedPreferences(getActivity());
+//        String location = sharedPrefs.getString(
+//                getString(R.string.pref_location_key),
+//                getString(R.string.pref_location_default));
+//
+//        // Using the URI scheme for showing a location found on a map.  This super-handy
+//        // intent can is detailed in the "Common Intents" page of Android's developer site:
+//        // http://developer.android.com/guide/components/intents-common.html#Maps
+//        if ( null != mForecastAdapter ) {
+//            //Cursor c = mForecastAdapter.getCursor();
+//            //if ( null != c ) {
+//                //c.moveToPosition(0);
+//                //String posLat = c.getString(COL_COORD_LAT);
+//                //String posLong = c.getString(COL_COORD_LONG);
+//                //Uri geoLocation = Uri.parse("geo:" + posLat + "," + posLong);
+//
+//
+//                // Using the URI scheme for showing a location found on a map.  This super-handy
+//                // intent can is detailed in the "Common Intents" page of Android's developer site:
+//                // http://developer.android.com/guide/components/intents-common.html#Maps
+//                Uri geoLocation = Uri.parse("geo:0,0?").buildUpon()
+//                    .appendQueryParameter("q", location)
+//                    .build();
+//
+//                Intent intent = new Intent(Intent.ACTION_VIEW);
+//                intent.setData(geoLocation);
+//
+//                if (intent.resolveActivity(getActivity().getPackageManager()) != null) {
+//                    startActivity(intent);
+//                } else {
+//                    Log.d(LOG_TAG, "Couldn't call " + geoLocation.toString() + ", no receiving apps installed!");
+//                }
+//            //}
+//
+//        }
+//    }
 
 
     /**
