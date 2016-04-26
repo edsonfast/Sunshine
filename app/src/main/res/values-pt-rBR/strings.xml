@@ -21,4 +21,8 @@
     <string name="pref_enable_notifications_false">Not Enabled</string>
 
     <string name="data_refresh">Dados atualizados!</string>
+
+    <string name="today">Hoje</string>
+    <string name="tomorrow">Amanhã</string>
+
 </resources>

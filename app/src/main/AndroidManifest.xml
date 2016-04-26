@@ -46,8 +46,18 @@
 
         <provider
             android:authorities="br.com.fast.edson.sunshine"
-            android:name=".data.WeatherProvider" />
+            android:name=".data.WeatherProvider"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="br.com.fast.edson.sunshine.LICENSE_TO_KILL"/>
+        <!-- false não da acesso -->
+        <!-- se esta linha não precisa pedir acesso com exported=true -->
 
     </application>
+
+    <!-- se esta linha não precisa pedir acesso com exported=true -->
+    <permission android:name="br.com.fast.edson.sunshine.LICENSE_TO_KILL"
+        android:protectionLevel="dangerous"
+        android:label="Licenced to Kill"/>
 
 </manifest>
